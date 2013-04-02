@@ -49,7 +49,6 @@ void Skein1024_1024_16(const u08b_t *input, u08b_t *result)
     memset(ctx.b, 0, sizeof(ctx.b));  /* zero out b[], so it can hold the counter */
     memcpy(X, ctx.X, sizeof(X));      /* keep a local copy of counter mode "key" */
 
-    ((u64b_t *) ctx.b)[0] = 0;          /* build the counter block */
     Skein_Start_New_Type(&ctx, OUT_FINAL);
     Skein1024_Process_Block(&ctx, ctx.b, 1, sizeof(u64b_t)); /* run "counter mode" */
 
