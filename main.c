@@ -1,16 +1,13 @@
+#include <limits.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
-#include "skein.h"
-
-#ifdef WIN32
-#include <Windows.h>
-#else
 #include <unistd.h>
 #include <pthread.h>
-#endif
+#include "skein.h"
 
 // Counts bits in a byte
-static const unsigned char BitsSetTable256[256] = 
+static const unsigned char BitsSetTable256[256] =
 {
 #   define B2(n) n,     n+1,     n+1,     n+2
 #   define B4(n) B2(n), B2(n+1), B2(n+1), B2(n+2)
@@ -23,20 +20,9 @@ uint8_t resultRef[0x80];
 int bestResultGlobal = 1000000;
 
 // Locks
-#ifdef WIN32
-
-static CRITICAL_SECTION lockVar;
-#define enterLock EnterCriticalSection
-#define leaveLock LeaveCriticalSection
-
-#else
-
 static pthread_mutex_t lockVar = PTHREAD_MUTEX_INITIALIZER;
-#define enterLock pthread_mutex_lock
-#define leaveLock pthread_mutex_unlock
 
-#endif
-
+// Main processing thread
 void processingThread(uint8_t firstChar)
 {
     // Setup state
@@ -69,7 +55,7 @@ void processingThread(uint8_t firstChar)
         // Better?
         if (bitsDifferent < bestResult)
         {
-            enterLock(&lockVar);
+            pthread_mutex_lock(&lockVar);
             {
                 // Check global result
                 if (bitsDifferent < bestResultGlobal)
@@ -84,7 +70,7 @@ void processingThread(uint8_t firstChar)
                 // Update our best result
                 bestResult = bestResultGlobal;
             }
-            leaveLock(&lockVar);
+            pthread_mutex_unlock(&lockVar);
         }
 
         // Advance other bytes
@@ -98,24 +84,14 @@ void processingThread(uint8_t firstChar)
     }
 }
 
-#ifdef WIN32
-
-DWORD WINAPI processingThreadWinApi(LPVOID param)
-{
-    processingThread((uint8_t) param);
-    return 0;
-}
-
-#else
-
+// Thread entry point
 void * processingThreadPthreads(void * param)
 {
-    processingThread((uint8_t) param);
+    processingThread((uint8_t) (uintptr_t) param);
     return NULL;
 }
 
-#endif
-
+// Setup result reference
 void setupResultRef(void)
 {
     // Populate result reference
@@ -147,39 +123,8 @@ void setupResultRef(void)
 // Main routine
 int main(void)
 {
-#ifdef WIN32
-
-    DWORD i;
-    SYSTEM_INFO info;
-
-    Skein1024_Ctxt_t ctx;
-    uint8_t result[0x80];
-
-    Skein1024_Init(&ctx, 1024);
-    Skein1024_Update(&ctx, "VBBBBBBBCINHT\\XW", 0x10);
-    Skein1024_Final(&ctx, result);
-
-
-    setupResultRef();
-
-    // Setup lock and idleness
-    InitializeCriticalSectionEx(&lockVar, 256, 0);
-    SetPriorityClass(GetCurrentProcess(), IDLE_PRIORITY_CLASS);
-
-    // Get number of processors
-    GetSystemInfo(&info);
-
-    // Start threads
-    for (i = 0; i < info.dwNumberOfProcessors; i++)
-        CreateThread(NULL, 0, processingThreadWinApi, (LPVOID) (0x41 + i), 0, NULL);
-
-    // Suspend
-    Sleep(INFINITE);
-
-#else
-
     int i, nrCpus;
-    
+
     setupResultRef();
 
     // I'm very nice
@@ -190,12 +135,9 @@ int main(void)
 
     // Start threads
     for (i = 0; i < nrCpus; i++)
-        pthread_create(malloc(sizeof(pthread_t)), NULL, processingThreadPthreads, (void*) (0x41 + i));
+        pthread_create(malloc(sizeof(pthread_t)), NULL, processingThreadPthreads, (void*) (intptr_t) (0x41 + i));
 
     // Suspend
     sleep(UINT_MAX);
-
-#endif
-
     return 0;
 }
