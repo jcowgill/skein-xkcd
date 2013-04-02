@@ -1,0 +1,3 @@
+#!/bin/sh
+gcc -O3 main.c skeinc/skein.c skeinc/skein_block.c -Iskeinc -lpthread
+
