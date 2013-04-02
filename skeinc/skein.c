@@ -25,32 +25,25 @@ void Skein1024_Process_Block(Skein1024_Ctxt_t *ctx, const u08b_t *blkPtr, size_t
 void Skein1024_1024_16(const u08b_t *input, u08b_t *result)
 {
     Skein1024_Ctxt_t ctx;
-    u64b_t X[SKEIN1024_STATE_WORDS];
 
     // Setup new context
-    // IS THIS MEMSET REQUIRED??????????
-    //  b must be 0 padded
-    memset(&ctx, 0, sizeof(ctx));
-
-    ctx.h.hashBitLen = 1024;
     memcpy(ctx.X, SKEIN1024_IV_1024, sizeof(ctx.X));
     Skein_Start_New_Type(&ctx, MSG);
+    ctx.h.T[1] |= SKEIN_T1_FLAG_FINAL;
 
-    // Copy input into buffer (b must be 0 padded - done by memset above)
+    // Copy input into buffer (with zero padding)
     memcpy(ctx.b, input, INPUT_SIZE);
-    ctx.h.bCnt = INPUT_SIZE;
+    memset(ctx.b + 16, 0, sizeof(ctx.b) - INPUT_SIZE);
 
-    // Do final stage
-    ctx.h.T[1] |= SKEIN_T1_FLAG_FINAL;                 /* tag as the final block */
+    // Do main hash
+    Skein1024_Process_Block(&ctx, ctx.b, 1, INPUT_SIZE);
 
-    Skein1024_Process_Block(&ctx, ctx.b, 1, ctx.h.bCnt);  /* process the final block */
-
-    /* run Threefish in "counter mode" to generate output */
-    memset(ctx.b, 0, sizeof(ctx.b));  /* zero out b[], so it can hold the counter */
-    memcpy(X, ctx.X, sizeof(X));      /* keep a local copy of counter mode "key" */
+    // Wipe input buffer and perform final stage
+    memset(ctx.b, 0, INPUT_SIZE);
 
     Skein_Start_New_Type(&ctx, OUT_FINAL);
-    Skein1024_Process_Block(&ctx, ctx.b, 1, sizeof(u64b_t)); /* run "counter mode" */
+    Skein1024_Process_Block(&ctx, ctx.b, 1, sizeof(u64b_t));
 
-    memcpy(result, ctx.X, SKEIN1024_BLOCK_BYTES);   /* "output" the ctr mode bytes */
+    // Save result
+    memcpy(result, ctx.X, SKEIN1024_BLOCK_BYTES);
 }
