@@ -37,7 +37,7 @@ void processingThread(uint8_t firstChar)
 
     // Wipe data
     for (i = 1; i < 0x10; i++)
-        data[i] = 'B';
+        data[i] = 'a';
     data[0] = firstChar;
 
     // Process
@@ -75,10 +75,10 @@ void processingThread(uint8_t firstChar)
         // Advance other bytes
         for (i = 0xF; i > 0; i--)
         {
-            if (++data[i] != ']')
+            if (++data[i] != '{')
                 break;
             else
-                data[i] = 'A';
+                data[i] = 'a';
         }
     }
 }
@@ -123,8 +123,14 @@ void setupResultRef(void)
 int main(void)
 {
     int i, nrCpus;
+    char firstChar;
 
     setupResultRef();
+
+    // Get input parameters
+    printf("First letter (incremented for each thread): ");
+    firstChar = getchar();
+    printf("\n");
 
     // I'm very nice
     nice(10000);
@@ -134,7 +140,7 @@ int main(void)
 
     // Start threads
     for (i = 0; i < nrCpus; i++)
-        pthread_create(malloc(sizeof(pthread_t)), NULL, processingThreadPthreads, (void*) (intptr_t) (0x41 + i));
+        pthread_create(malloc(sizeof(pthread_t)), NULL, processingThreadPthreads, (void*) (intptr_t) (firstChar + i));
 
     // Suspend
     sleep(UINT_MAX);
