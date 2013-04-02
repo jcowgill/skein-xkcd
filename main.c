@@ -4,7 +4,9 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <pthread.h>
-#include "skein.h"
+
+// Skein hasher (Skein1024, 1024 bit output, 16 byte input)
+void Skein1024_1024_16(const uint8_t* input, uint8_t* result);
 
 // Counts bits in a byte
 static const unsigned char BitsSetTable256[256] =
@@ -26,7 +28,6 @@ static pthread_mutex_t lockVar = PTHREAD_MUTEX_INITIALIZER;
 void processingThread(uint8_t firstChar)
 {
     // Setup state
-    Skein1024_Ctxt_t ctx;
     uint8_t result[0x80];
     uint8_t data[0x10];
 
@@ -43,9 +44,7 @@ void processingThread(uint8_t firstChar)
     for (;;)
     {
         // Try hashing this
-        Skein1024_Init(&ctx, 1024);
-        Skein1024_Update(&ctx, data, 0x10);
-        Skein1024_Final(&ctx, result);
+        Skein1024_1024_16(data, result);
 
         // Compare with reference
         bitsDifferent = 0;
